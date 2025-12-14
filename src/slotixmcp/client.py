@@ -15,7 +15,7 @@ class SlotixClient:
         api_url: Optional[str] = None
     ):
         self.api_key = api_key or os.environ.get("SLOTIX_API_KEY")
-        self.api_url = (api_url or os.environ.get("SLOTIX_API_URL", "https://api.slotix.it")).rstrip("/")
+        self.api_url = (api_url or os.environ.get("SLOTIX_API_URL", "https://app.slotix.ai/api")).rstrip("/")
 
         if not self.api_key:
             raise ValueError(
