@@ -375,7 +375,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             else:
                 text = f"**Appointments** ({result.get('date_range', '')})\n\n"
                 for apt in appointments:
-                    text += f"- **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}\n"
+                    text += f"- [ID:{apt['id']}] **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}\n"
                     if apt.get('notes'):
                         text += f"  Notes: {apt['notes']}\n"
                 text += f"\nTotal: {result.get('total', len(appointments))} appointments"
@@ -388,7 +388,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             else:
                 text = "**Today's Appointments**\n\n"
                 for apt in appointments:
-                    text += f"- **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}\n"
+                    text += f"- [ID:{apt['id']}] **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}\n"
                 text += f"\nTotal: {len(appointments)} appointments"
 
         elif name == "get_week_appointments":
@@ -399,7 +399,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             else:
                 text = f"**This Week's Appointments** ({result.get('date_range', '')})\n\n"
                 for apt in appointments:
-                    text += f"- **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}\n"
+                    text += f"- [ID:{apt['id']}] **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}\n"
                 text += f"\nTotal: {len(appointments)} appointments"
 
         elif name == "get_appointment":
