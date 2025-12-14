@@ -313,6 +313,33 @@ async def list_tools() -> list[Tool]:
                 "required": ["client_id", "message"]
             }
         ),
+        Tool(
+            name="create_coupon",
+            description="Create and send a discount coupon to a client. The coupon is automatically sent via Telegram or WhatsApp with a QR code. Uses your default settings if discount parameters are not specified.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "client_id": {
+                        "type": "integer",
+                        "description": "The client ID to send the coupon to"
+                    },
+                    "discount_type": {
+                        "type": "string",
+                        "description": "Type of discount: 'fixed' for amount off, 'percentage' for percent off",
+                        "enum": ["fixed", "percentage"]
+                    },
+                    "discount_value": {
+                        "type": "number",
+                        "description": "Discount amount (for fixed) or percentage (for percentage type)"
+                    },
+                    "validity_days": {
+                        "type": "integer",
+                        "description": "Number of days until the coupon expires"
+                    }
+                },
+                "required": ["client_id"]
+            }
+        ),
     ]
 
 
@@ -520,6 +547,28 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 text = f"**Message sent** via {result.get('channel_used', 'messaging')}."
             else:
                 text = f"**Failed to send message**: {result.get('message', 'Unknown error')}"
+
+        elif name == "create_coupon":
+            result = await slotix.create_coupon(
+                client_id=arguments["client_id"],
+                discount_type=arguments.get("discount_type"),
+                discount_value=arguments.get("discount_value"),
+                validity_days=arguments.get("validity_days")
+            )
+            if result.get("success"):
+                expires = result.get("expires_at", "")
+                if expires:
+                    try:
+                        expires = format_datetime(expires)
+                    except Exception:
+                        pass
+                text = f"""**Coupon Created**
+- Code: {result.get('coupon_code', 'N/A')}
+- Discount: {result.get('discount_display', 'N/A')}
+- Expires: {expires or 'N/A'}
+- Status: {result.get('message', 'Sent')}"""
+            else:
+                text = f"**Failed to create coupon**: {result.get('message', 'Unknown error')}"
 
         else:
             text = f"Unknown tool: {name}"

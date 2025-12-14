@@ -11,6 +11,7 @@ This server allows AI assistants like **Claude Desktop** and **ChatGPT** to mana
 - **Availability**: Check available time slots for booking
 - **Statistics**: Get business insights (revenue, appointments, clients)
 - **Notifications**: Send messages to clients via Telegram or WhatsApp
+- **Coupons**: Create and send discount coupons with QR codes to clients
 
 ## Prerequisites
 
@@ -87,6 +88,7 @@ Set the following environment variables:
 | `get_availability` | Get available time slots |
 | `get_stats` | Get business statistics |
 | `send_notification` | Send a message to a client |
+| `create_coupon` | Create and send a discount coupon to a client |
 
 ## Example Conversations
 
@@ -104,6 +106,12 @@ Set the following environment variables:
 
 **Find available slots:**
 > "When am I free next week?"
+
+**Send a discount coupon:**
+> "Create a 10% discount coupon for client Mario Rossi"
+
+**Send a fixed amount coupon:**
+> "Send a €5 coupon to the client with ID 42"
 
 ## Development
 

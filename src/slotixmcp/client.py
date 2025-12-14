@@ -207,3 +207,21 @@ class SlotixClient:
                 "channel": channel
             }
         )
+
+    # Coupons
+    async def create_coupon(
+        self,
+        client_id: int,
+        discount_type: Optional[str] = None,
+        discount_value: Optional[float] = None,
+        validity_days: Optional[int] = None
+    ) -> dict:
+        """Create and send a coupon to a client."""
+        data: dict[str, Any] = {"client_id": client_id}
+        if discount_type:
+            data["discount_type"] = discount_type
+        if discount_value is not None:
+            data["discount_value"] = discount_value
+        if validity_days is not None:
+            data["validity_days"] = validity_days
+        return await self._request("POST", "/coupons/send", json=data)
