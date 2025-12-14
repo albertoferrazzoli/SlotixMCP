@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "slotixmcp"
-version = "0.1.3"
+version = "0.1.4"
 description = "MCP Server for Slotix - AI-powered appointment management integration"
 readme = "README.md"
 license = { text = "MIT" }

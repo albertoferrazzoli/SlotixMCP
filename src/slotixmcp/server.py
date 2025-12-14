@@ -462,7 +462,21 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
             # Optionally notify the client
             if arguments.get("notify_client", True) and result.get("client_id"):
-                message = arguments.get("message") or f"Your appointment has been rescheduled to {format_datetime(result['start_datetime'])}."
+                # Get user's language for localized message
+                profile = await slotix.get_profile()
+                lang = profile.get("language", "en")
+
+                # Localized reschedule messages
+                reschedule_messages = {
+                    "it": f"Il tuo appuntamento è stato spostato a {format_datetime(result['start_datetime'])}.",
+                    "en": f"Your appointment has been rescheduled to {format_datetime(result['start_datetime'])}.",
+                    "de": f"Ihr Termin wurde auf {format_datetime(result['start_datetime'])} verschoben.",
+                    "fr": f"Votre rendez-vous a été déplacé au {format_datetime(result['start_datetime'])}.",
+                    "es": f"Su cita ha sido reprogramada para el {format_datetime(result['start_datetime'])}.",
+                }
+                default_message = reschedule_messages.get(lang, reschedule_messages["en"])
+                message = arguments.get("message") or default_message
+
                 try:
                     notify_result = await slotix.send_notification(
                         client_id=result["client_id"],
