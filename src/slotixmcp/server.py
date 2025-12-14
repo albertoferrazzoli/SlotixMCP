@@ -152,7 +152,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="update_appointment",
-            description="Update an existing appointment (reschedule, add notes, change status).",
+            description="Update an existing appointment (reschedule, add notes, change status, update payment).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -172,6 +172,18 @@ async def list_tools() -> list[Tool]:
                         "type": "string",
                         "description": "New status: booked, completed, cancelled, no_show",
                         "enum": ["booked", "completed", "cancelled", "no_show"]
+                    },
+                    "amount_paid": {
+                        "type": "number",
+                        "description": "Amount paid by the client"
+                    },
+                    "payment_method": {
+                        "type": "string",
+                        "description": "Payment method: cash, card, transfer, etc."
+                    },
+                    "payment_complete": {
+                        "type": "boolean",
+                        "description": "Whether the payment is complete"
                     },
                     "notes": {
                         "type": "string",
@@ -436,14 +448,26 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 start_datetime=arguments.get("start_datetime"),
                 duration_minutes=arguments.get("duration_minutes"),
                 status=arguments.get("status"),
-                notes=arguments.get("notes")
+                notes=arguments.get("notes"),
+                amount_paid=arguments.get("amount_paid"),
+                payment_method=arguments.get("payment_method"),
+                payment_complete=arguments.get("payment_complete")
             )
+            # Build payment info if available
+            payment_info = ""
+            if result.get('total_price') or result.get('amount_paid'):
+                total = result.get('total_price', 'N/A')
+                paid = result.get('amount_paid', '0')
+                method = result.get('payment_method', 'N/A')
+                complete = "Yes" if result.get('payment_complete') else "No"
+                payment_info = f"\n- Total Price: {total}\n- Amount Paid: {paid}\n- Payment Method: {method}\n- Payment Complete: {complete}"
+
             text = f"""**Appointment Updated**
 - ID: {result['id']}
 - Client: {result['client_name']}
 - Date: {format_datetime(result['start_datetime'])}
 - Duration: {result['duration_minutes']} minutes
-- Status: {result['status']}"""
+- Status: {result['status']}{payment_info}"""
 
         elif name == "cancel_appointment":
             result = await slotix.cancel_appointment(arguments["appointment_id"])
