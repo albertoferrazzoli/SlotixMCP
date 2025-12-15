@@ -234,3 +234,106 @@ class SlotixClient:
         if validity_days is not None:
             data["validity_days"] = validity_days
         return await self._request("POST", "/coupons/send", json=data)
+
+    # Catalog (Services/Products)
+    async def get_catalog_items(
+        self,
+        is_active: Optional[bool] = None,
+        is_product: Optional[bool] = None,
+        category: Optional[str] = None
+    ) -> dict:
+        """Get catalog items (services/products)."""
+        params = {}
+        if is_active is not None:
+            params["is_active"] = is_active
+        if is_product is not None:
+            params["is_product"] = is_product
+        if category:
+            params["category"] = category
+        return await self._request("GET", "/catalog", params=params)
+
+    async def create_catalog_item(
+        self,
+        name: str,
+        price: float,
+        description: Optional[str] = None,
+        duration_minutes: Optional[int] = None,
+        is_active: bool = True,
+        is_product: bool = False,
+        category: Optional[str] = None
+    ) -> dict:
+        """Create a new catalog item (service or product)."""
+        data: dict[str, Any] = {
+            "name": name,
+            "price": price,
+            "is_active": is_active,
+            "is_product": is_product,
+        }
+        if description:
+            data["description"] = description
+        if duration_minutes is not None:
+            data["duration_minutes"] = duration_minutes
+        if category:
+            data["category"] = category
+        return await self._request("POST", "/catalog", json=data)
+
+    async def update_catalog_item(
+        self,
+        item_id: int,
+        name: Optional[str] = None,
+        price: Optional[float] = None,
+        description: Optional[str] = None,
+        duration_minutes: Optional[int] = None,
+        is_active: Optional[bool] = None,
+        is_product: Optional[bool] = None,
+        category: Optional[str] = None
+    ) -> dict:
+        """Update a catalog item."""
+        data = {}
+        if name is not None:
+            data["name"] = name
+        if price is not None:
+            data["price"] = price
+        if description is not None:
+            data["description"] = description
+        if duration_minutes is not None:
+            data["duration_minutes"] = duration_minutes
+        if is_active is not None:
+            data["is_active"] = is_active
+        if is_product is not None:
+            data["is_product"] = is_product
+        if category is not None:
+            data["category"] = category
+        return await self._request("PUT", f"/catalog/{item_id}", json=data)
+
+    async def delete_catalog_item(self, item_id: int) -> dict:
+        """Delete a catalog item."""
+        return await self._request("DELETE", f"/catalog/{item_id}")
+
+    # Appointment Services
+    async def get_appointment_services(self, appointment_id: int) -> list:
+        """Get services attached to an appointment."""
+        return await self._request("GET", f"/appointments/{appointment_id}/services")
+
+    async def add_service_to_appointment(
+        self,
+        appointment_id: int,
+        catalog_item_id: int
+    ) -> dict:
+        """Add a service to an appointment."""
+        return await self._request(
+            "POST",
+            f"/appointments/{appointment_id}/services",
+            json={"catalog_item_id": catalog_item_id}
+        )
+
+    async def remove_service_from_appointment(
+        self,
+        appointment_id: int,
+        service_id: int
+    ) -> dict:
+        """Remove a service from an appointment."""
+        return await self._request(
+            "DELETE",
+            f"/appointments/{appointment_id}/services/{service_id}"
+        )

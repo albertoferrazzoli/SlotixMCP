@@ -352,6 +352,170 @@ async def list_tools() -> list[Tool]:
                 "required": ["client_id"]
             }
         ),
+        # Catalog (Services/Products)
+        Tool(
+            name="get_catalog_items",
+            description="Get your catalog of services and products. Filter by active status, type (service/product), or category.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "is_active": {
+                        "type": "boolean",
+                        "description": "Filter by active status (true/false)"
+                    },
+                    "is_product": {
+                        "type": "boolean",
+                        "description": "Filter by type: true=products, false=services"
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "Filter by category name"
+                    }
+                },
+                "required": []
+            }
+        ),
+        Tool(
+            name="create_catalog_item",
+            description="Create a new service or product in your catalog.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Item name"
+                    },
+                    "price": {
+                        "type": "number",
+                        "description": "Price"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Item description"
+                    },
+                    "duration_minutes": {
+                        "type": "integer",
+                        "description": "Duration in minutes (for services)"
+                    },
+                    "is_product": {
+                        "type": "boolean",
+                        "description": "True for product, false for service (default: false)"
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "Category name"
+                    }
+                },
+                "required": ["name", "price"]
+            }
+        ),
+        Tool(
+            name="update_catalog_item",
+            description="Update an existing catalog item (service or product).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "item_id": {
+                        "type": "integer",
+                        "description": "The catalog item ID to update"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "New item name"
+                    },
+                    "price": {
+                        "type": "number",
+                        "description": "New price"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "New description"
+                    },
+                    "duration_minutes": {
+                        "type": "integer",
+                        "description": "New duration in minutes"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "description": "Active status"
+                    },
+                    "is_product": {
+                        "type": "boolean",
+                        "description": "True for product, false for service"
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "New category name"
+                    }
+                },
+                "required": ["item_id"]
+            }
+        ),
+        Tool(
+            name="delete_catalog_item",
+            description="Delete a catalog item (service or product).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "item_id": {
+                        "type": "integer",
+                        "description": "The catalog item ID to delete"
+                    }
+                },
+                "required": ["item_id"]
+            }
+        ),
+        # Appointment Services
+        Tool(
+            name="get_appointment_services",
+            description="Get all services/products attached to a specific appointment.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "appointment_id": {
+                        "type": "integer",
+                        "description": "The appointment ID"
+                    }
+                },
+                "required": ["appointment_id"]
+            }
+        ),
+        Tool(
+            name="add_service_to_appointment",
+            description="Add a service or product from your catalog to an appointment. This will update the appointment's total price.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "appointment_id": {
+                        "type": "integer",
+                        "description": "The appointment ID"
+                    },
+                    "catalog_item_id": {
+                        "type": "integer",
+                        "description": "The catalog item ID to add"
+                    }
+                },
+                "required": ["appointment_id", "catalog_item_id"]
+            }
+        ),
+        Tool(
+            name="remove_service_from_appointment",
+            description="Remove a service or product from an appointment. This will update the appointment's total price.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "appointment_id": {
+                        "type": "integer",
+                        "description": "The appointment ID"
+                    },
+                    "service_id": {
+                        "type": "integer",
+                        "description": "The appointment service record ID (not the catalog item ID)"
+                    }
+                },
+                "required": ["appointment_id", "service_id"]
+            }
+        ),
     ]
 
 
@@ -607,6 +771,101 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 - Status: {result.get('message', 'Sent')}"""
             else:
                 text = f"**Failed to create coupon**: {result.get('message', 'Unknown error')}"
+
+        # Catalog (Services/Products)
+        elif name == "get_catalog_items":
+            result = await slotix.get_catalog_items(
+                is_active=arguments.get("is_active"),
+                is_product=arguments.get("is_product"),
+                category=arguments.get("category")
+            )
+            items = result.get("items", [])
+            if not items:
+                text = "No catalog items found."
+            else:
+                text = "**Catalog Items**\n\n"
+                for item in items:
+                    item_type = "Product" if item.get("is_product") else "Service"
+                    status = "Active" if item.get("is_active") else "Inactive"
+                    duration = f" ({item['duration_minutes']}min)" if item.get("duration_minutes") else ""
+                    text += f"- [ID:{item['id']}] **{item['name']}** - {item['price']}{duration} - {item_type} - {status}\n"
+                text += f"\nTotal: {result.get('total', len(items))} items"
+
+        elif name == "create_catalog_item":
+            result = await slotix.create_catalog_item(
+                name=arguments["name"],
+                price=arguments["price"],
+                description=arguments.get("description"),
+                duration_minutes=arguments.get("duration_minutes"),
+                is_active=arguments.get("is_active", True),
+                is_product=arguments.get("is_product", False),
+                category=arguments.get("category")
+            )
+            item_type = "Product" if result.get("is_product") else "Service"
+            text = f"""**Catalog Item Created**
+- ID: {result['id']}
+- Name: {result['name']}
+- Price: {result['price']}
+- Type: {item_type}
+- Duration: {result.get('duration_minutes', 'N/A')} minutes
+- Category: {result.get('category', 'N/A')}"""
+
+        elif name == "update_catalog_item":
+            result = await slotix.update_catalog_item(
+                item_id=arguments["item_id"],
+                name=arguments.get("name"),
+                price=arguments.get("price"),
+                description=arguments.get("description"),
+                duration_minutes=arguments.get("duration_minutes"),
+                is_active=arguments.get("is_active"),
+                is_product=arguments.get("is_product"),
+                category=arguments.get("category")
+            )
+            item_type = "Product" if result.get("is_product") else "Service"
+            status = "Active" if result.get("is_active") else "Inactive"
+            text = f"""**Catalog Item Updated**
+- ID: {result['id']}
+- Name: {result['name']}
+- Price: {result['price']}
+- Type: {item_type}
+- Status: {status}
+- Duration: {result.get('duration_minutes', 'N/A')} minutes
+- Category: {result.get('category', 'N/A')}"""
+
+        elif name == "delete_catalog_item":
+            await slotix.delete_catalog_item(arguments["item_id"])
+            text = f"**Catalog item #{arguments['item_id']} deleted.**"
+
+        # Appointment Services
+        elif name == "get_appointment_services":
+            result = await slotix.get_appointment_services(arguments["appointment_id"])
+            if not result:
+                text = f"No services attached to appointment #{arguments['appointment_id']}."
+            else:
+                text = f"**Services for Appointment #{arguments['appointment_id']}**\n\n"
+                total = 0
+                for svc in result:
+                    price = float(svc.get("price_at_booking", 0))
+                    total += price
+                    text += f"- [ID:{svc['id']}] **{svc['item_name']}** - {svc['price_at_booking']}\n"
+                text += f"\n**Total: {total}**"
+
+        elif name == "add_service_to_appointment":
+            result = await slotix.add_service_to_appointment(
+                appointment_id=arguments["appointment_id"],
+                catalog_item_id=arguments["catalog_item_id"]
+            )
+            text = f"""**Service Added to Appointment #{arguments['appointment_id']}**
+- Service ID: {result['id']}
+- Name: {result['item_name']}
+- Price: {result['price_at_booking']}"""
+
+        elif name == "remove_service_from_appointment":
+            await slotix.remove_service_from_appointment(
+                appointment_id=arguments["appointment_id"],
+                service_id=arguments["service_id"]
+            )
+            text = f"**Service #{arguments['service_id']} removed from appointment #{arguments['appointment_id']}.**"
 
         else:
             text = f"Unknown tool: {name}"
