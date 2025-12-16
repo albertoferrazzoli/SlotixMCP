@@ -551,7 +551,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             else:
                 text = f"**Appointments** ({result.get('date_range', '')})\n\n"
                 for apt in appointments:
-                    text += f"- [ID:{apt['id']}] **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}\n"
+                    text += f"- [ID:{apt['id']}] **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}"
+                    service_ids = apt.get('service_ids', [])
+                    if service_ids:
+                        text += f" | Service IDs: {service_ids}"
+                    text += "\n"
                     if apt.get('notes'):
                         text += f"  Notes: {apt['notes']}\n"
                 text += f"\nTotal: {result.get('total', len(appointments))} appointments"
@@ -564,7 +568,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             else:
                 text = "**Today's Appointments**\n\n"
                 for apt in appointments:
-                    text += f"- [ID:{apt['id']}] **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}\n"
+                    text += f"- [ID:{apt['id']}] **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}"
+                    service_ids = apt.get('service_ids', [])
+                    if service_ids:
+                        text += f" | Service IDs: {service_ids}"
+                    text += "\n"
                 text += f"\nTotal: {len(appointments)} appointments"
 
         elif name == "get_week_appointments":
@@ -575,11 +583,17 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             else:
                 text = f"**This Week's Appointments** ({result.get('date_range', '')})\n\n"
                 for apt in appointments:
-                    text += f"- [ID:{apt['id']}] **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}\n"
+                    text += f"- [ID:{apt['id']}] **{apt['client_name']}** - {format_datetime(apt['start_datetime'])} ({apt['duration_minutes']}min) - {apt['status']}"
+                    service_ids = apt.get('service_ids', [])
+                    if service_ids:
+                        text += f" | Service IDs: {service_ids}"
+                    text += "\n"
                 text += f"\nTotal: {len(appointments)} appointments"
 
         elif name == "get_appointment":
             result = await slotix.get_appointment(arguments["appointment_id"])
+            service_ids = result.get('service_ids', [])
+            services_line = f"\n- Service IDs: {service_ids}" if service_ids else ""
             text = f"""**Appointment #{result['id']}**
 - Client: {result['client_name']}
 - Contact: {result.get('client_contact', 'N/A')}
@@ -587,7 +601,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 - Duration: {result['duration_minutes']} minutes
 - Status: {result['status']}
 - Source: {result['source']}
-- Notes: {result.get('notes', 'None')}
+- Notes: {result.get('notes', 'None')}{services_line}
 - Total: {result.get('total_price', 'N/A')}"""
 
         elif name == "create_appointment":
