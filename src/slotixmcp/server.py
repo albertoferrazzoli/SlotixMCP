@@ -127,7 +127,7 @@ async def list_tools() -> list[Tool]:
                     },
                     "start_datetime": {
                         "type": "string",
-                        "description": "Appointment date and time (ISO 8601 format, e.g., 2024-12-20T10:00:00)"
+                        "description": "Appointment date and time in ISO 8601 format (YYYY-MM-DDTHH:MM:SS). Always use the current year."
                     },
                     "duration_minutes": {
                         "type": "integer",
