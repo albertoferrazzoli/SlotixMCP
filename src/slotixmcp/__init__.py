@@ -6,5 +6,5 @@ AI assistants like Claude Desktop and ChatGPT to interact with Slotix
 for managing appointments, clients, and notifications.
 """
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 __author__ = "Slotix"
