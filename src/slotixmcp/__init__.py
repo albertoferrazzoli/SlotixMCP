@@ -6,5 +6,11 @@ AI assistants like Claude Desktop and ChatGPT to interact with Slotix
 for managing appointments, clients, and notifications.
 """
 
-__version__ = "0.2.3"
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("slotixmcp")
+except PackageNotFoundError:
+    __version__ = "0.0.0"  # Development/editable install
+
 __author__ = "Slotix"

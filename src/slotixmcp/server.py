@@ -14,6 +14,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
 from .client import SlotixClient
+from . import __version__
 
 
 # Initialize MCP server
@@ -579,7 +580,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 **AI Configuration**
 - Custom prompt: {result.get('ai_custom_prompt')[:200]}{'...' if len(result.get('ai_custom_prompt', '')) > 200 else ''}"""
 
-            text = f"""**Profile**
+            text = f"""**SlotixMCP v{__version__}**
+
+**Profile**
 - Name: {result.get('full_name', 'N/A')}
 - Email: {result.get('email', 'N/A')}
 - Phone: {result.get('phone', 'N/A')}
@@ -621,6 +624,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     service_ids = apt.get('service_ids', [])
                     if service_ids:
                         text += f" | Service IDs: {service_ids}"
+                    if apt.get('created_at'):
+                        text += f" | Booked: {format_datetime(apt['created_at'])}"
                     text += "\n"
                     if apt.get('notes'):
                         text += f"  Notes: {apt['notes']}\n"
@@ -638,6 +643,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     service_ids = apt.get('service_ids', [])
                     if service_ids:
                         text += f" | Service IDs: {service_ids}"
+                    if apt.get('created_at'):
+                        text += f" | Booked: {format_datetime(apt['created_at'])}"
                     text += "\n"
                 text += f"\nTotal: {len(appointments)} appointments"
 
@@ -653,6 +660,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     service_ids = apt.get('service_ids', [])
                     if service_ids:
                         text += f" | Service IDs: {service_ids}"
+                    if apt.get('created_at'):
+                        text += f" | Booked: {format_datetime(apt['created_at'])}"
                     text += "\n"
                 text += f"\nTotal: {len(appointments)} appointments"
 
