@@ -139,6 +139,7 @@ class SlotixClient:
         notes: Optional[str] = None,
         amount_paid: Optional[float] = None,
         payment_method: Optional[str] = None,
+        payment_notes: Optional[str] = None,
         payment_complete: Optional[bool] = None
     ) -> dict:
         """Update an appointment."""
@@ -155,6 +156,8 @@ class SlotixClient:
             data["amount_paid"] = amount_paid
         if payment_method is not None:
             data["payment_method"] = payment_method
+        if payment_notes is not None:
+            data["payment_notes"] = payment_notes
         if payment_complete is not None:
             data["payment_complete"] = payment_complete
         return await self._request("PUT", f"/appointments/{appointment_id}", json=data)

@@ -53,7 +53,7 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="get_profile",
-            description="Get your professional profile information including business name, contact details, and settings.",
+            description="Get your professional profile with all business details. Returns: name, email, phone, business info (name, address, city, postal code, country, VAT, website), localization (timezone, currency, language), booking settings (slot duration, notice hours, max days ahead, client modification rules, reminder times), enabled features (Telegram, WhatsApp, catalog, reminders, feedback, coupons, AI), coupon settings, and AI custom prompt.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -103,7 +103,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="get_appointment",
-            description="Get details of a specific appointment by ID.",
+            description="Get full details of a specific appointment. Returns: client info (name, contact, ID), date/time, duration, status, source, notes, services, payment info (total price, amount paid, method, notes, complete status), feedback (rating, comment, sentiment), and timestamps (created_at, updated_at).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -152,7 +152,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="update_appointment",
-            description="Update an existing appointment (reschedule, add notes, change status, update payment).",
+            description="Update an existing appointment (reschedule, add notes, change status, update payment). Returns updated appointment with all fields including timestamps.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -180,6 +180,10 @@ async def list_tools() -> list[Tool]:
                     "payment_method": {
                         "type": "string",
                         "description": "Payment method: cash, card, transfer, etc."
+                    },
+                    "payment_notes": {
+                        "type": "string",
+                        "description": "Payment notes (e.g., 'Paid 50%, rest next visit')"
                     },
                     "payment_complete": {
                         "type": "boolean",
@@ -528,16 +532,78 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         if name == "get_profile":
             result = await slotix.get_profile()
+
+            # Build address
+            address_parts = []
+            if result.get('business_address'):
+                address_parts.append(result['business_address'])
+            if result.get('business_postal_code') or result.get('business_city'):
+                city_line = f"{result.get('business_postal_code', '')} {result.get('business_city', '')}".strip()
+                if city_line:
+                    address_parts.append(city_line)
+            if result.get('business_country'):
+                address_parts.append(result['business_country'])
+            address = ", ".join(address_parts) if address_parts else "N/A"
+
+            # Build features list
+            features = []
+            if result.get('telegram_bot_active'):
+                features.append("Telegram")
+            if result.get('whatsapp_active'):
+                features.append("WhatsApp")
+            if result.get('catalog_enabled'):
+                features.append("Catalog")
+            if result.get('reminder_enabled'):
+                features.append("Reminders")
+            if result.get('feedback_enabled'):
+                features.append("Feedback")
+            if result.get('coupon_enabled'):
+                features.append("Coupons")
+            if result.get('ai_enabled'):
+                features.append("AI")
+            features_str = ", ".join(features) if features else "None"
+
+            # Coupon settings
+            coupon_info = ""
+            if result.get('coupon_enabled'):
+                coupon_info = f"""
+**Coupon Settings**
+- Spending threshold: {result.get('coupon_spending_threshold', 'N/A')} {result.get('currency', '')}
+- Discount: {result.get('coupon_discount_value', 'N/A')} {'%' if result.get('coupon_discount_type') == 'percentage' else result.get('currency', '')}
+- Validity: {result.get('coupon_validity_days', 'N/A')} days"""
+
+            # AI prompt
+            ai_info = ""
+            if result.get('ai_custom_prompt'):
+                ai_info = f"""
+**AI Configuration**
+- Custom prompt: {result.get('ai_custom_prompt')[:200]}{'...' if len(result.get('ai_custom_prompt', '')) > 200 else ''}"""
+
             text = f"""**Profile**
 - Name: {result.get('full_name', 'N/A')}
-- Business: {result.get('business_name', 'N/A')}
 - Email: {result.get('email', 'N/A')}
 - Phone: {result.get('phone', 'N/A')}
+
+**Business**
+- Business name: {result.get('business_name', 'N/A')}
+- Address: {address}
+- VAT: {result.get('vat_number', 'N/A')}
+- Website: {result.get('business_website', 'N/A')}
+
+**Settings**
 - Timezone: {result.get('timezone', 'N/A')}
 - Currency: {result.get('currency', 'N/A')}
+- Language: {result.get('language', 'N/A')}
+
+**Booking**
 - Default slot duration: {result.get('default_slot_duration', 30)} minutes
-- Telegram bot: {'Active' if result.get('telegram_bot_active') else 'Inactive'}
-- WhatsApp: {'Active' if result.get('whatsapp_active') else 'Inactive'}"""
+- Minimum notice: {result.get('booking_notice_hours', 24)} hours
+- Max days ahead: {result.get('max_booking_days_ahead', 30)} days
+- Client can modify: {'Yes' if result.get('allow_client_modifications') else 'No'} (min {result.get('min_hours_before_modification', 24)}h before)
+- Reminder times: {result.get('reminder_times', [24])} hours before
+
+**Features Enabled**
+{features_str}{coupon_info}{ai_info}"""
 
         elif name == "get_appointments":
             result = await slotix.get_appointments(
@@ -594,15 +660,40 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             result = await slotix.get_appointment(arguments["appointment_id"])
             service_ids = result.get('service_ids', [])
             services_line = f"\n- Service IDs: {service_ids}" if service_ids else ""
+
+            # Build payment info
+            payment_info = ""
+            if result.get('total_price') or result.get('amount_paid'):
+                payment_info = f"""
+- Total Price: {result.get('total_price', 'N/A')}
+- Amount Paid: {result.get('amount_paid', '0')}
+- Payment Method: {result.get('payment_method', 'N/A')}
+- Payment Notes: {result.get('payment_notes', 'None')}
+- Payment Complete: {'Yes' if result.get('payment_complete') else 'No'}"""
+
+            # Build feedback info
+            feedback_info = ""
+            if result.get('feedback_rating'):
+                feedback_info = f"""
+- Feedback Rating: {result.get('feedback_rating')}/5
+- Feedback Comment: {result.get('feedback_comment', 'None')}
+- Feedback Sentiment: {result.get('feedback_sentiment', 'N/A')}"""
+
+            # Build timestamps
+            created = format_datetime(result['created_at']) if result.get('created_at') else 'N/A'
+            updated = format_datetime(result['updated_at']) if result.get('updated_at') else 'N/A'
+
             text = f"""**Appointment #{result['id']}**
 - Client: {result['client_name']}
 - Contact: {result.get('client_contact', 'N/A')}
+- Client ID: {result.get('client_id', 'N/A')}
 - Date: {format_datetime(result['start_datetime'])} - {format_datetime(result['end_datetime'])}
 - Duration: {result['duration_minutes']} minutes
 - Status: {result['status']}
 - Source: {result['source']}
-- Notes: {result.get('notes', 'None')}{services_line}
-- Total: {result.get('total_price', 'N/A')}"""
+- Notes: {result.get('notes', 'None')}{services_line}{payment_info}{feedback_info}
+- Created: {created}
+- Updated: {updated}"""
 
         elif name == "create_appointment":
             result = await slotix.create_appointment(
@@ -629,23 +720,29 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 notes=arguments.get("notes"),
                 amount_paid=arguments.get("amount_paid"),
                 payment_method=arguments.get("payment_method"),
+                payment_notes=arguments.get("payment_notes"),
                 payment_complete=arguments.get("payment_complete")
             )
             # Build payment info if available
             payment_info = ""
             if result.get('total_price') or result.get('amount_paid'):
-                total = result.get('total_price', 'N/A')
-                paid = result.get('amount_paid', '0')
-                method = result.get('payment_method', 'N/A')
-                complete = "Yes" if result.get('payment_complete') else "No"
-                payment_info = f"\n- Total Price: {total}\n- Amount Paid: {paid}\n- Payment Method: {method}\n- Payment Complete: {complete}"
+                payment_info = f"""
+- Total Price: {result.get('total_price', 'N/A')}
+- Amount Paid: {result.get('amount_paid', '0')}
+- Payment Method: {result.get('payment_method', 'N/A')}
+- Payment Notes: {result.get('payment_notes', 'None')}
+- Payment Complete: {'Yes' if result.get('payment_complete') else 'No'}"""
+
+            # Build timestamps
+            updated = format_datetime(result['updated_at']) if result.get('updated_at') else 'N/A'
 
             text = f"""**Appointment Updated**
 - ID: {result['id']}
 - Client: {result['client_name']}
 - Date: {format_datetime(result['start_datetime'])}
 - Duration: {result['duration_minutes']} minutes
-- Status: {result['status']}{payment_info}"""
+- Status: {result['status']}{payment_info}
+- Updated: {updated}"""
 
         elif name == "cancel_appointment":
             result = await slotix.cancel_appointment(arguments["appointment_id"])
