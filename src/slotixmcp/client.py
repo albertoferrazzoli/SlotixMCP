@@ -109,19 +109,24 @@ class SlotixClient:
 
     async def create_appointment(
         self,
-        client_name: str,
         start_datetime: str,
         duration_minutes: int = 30,
+        client_name: Optional[str] = None,
         client_contact: Optional[str] = None,
         client_id: Optional[int] = None,
         notes: Optional[str] = None
     ) -> dict:
-        """Create a new appointment."""
-        data = {
-            "client_name": client_name,
+        """Create a new appointment.
+
+        Either client_name or client_id must be provided.
+        If client_id is provided, client info is resolved from the database.
+        """
+        data: dict[str, Any] = {
             "start_datetime": start_datetime,
             "duration_minutes": duration_minutes,
         }
+        if client_name:
+            data["client_name"] = client_name
         if client_contact:
             data["client_contact"] = client_contact
         if client_id:

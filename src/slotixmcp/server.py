@@ -118,13 +118,13 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="create_appointment",
-            description="Create a new appointment for a client.",
+            description="Create a new appointment for a client. Either client_name or client_id must be provided. If client_id is provided, client info is resolved from the database.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "client_name": {
                         "type": "string",
-                        "description": "Client's name"
+                        "description": "Client's name (optional if client_id is provided)"
                     },
                     "start_datetime": {
                         "type": "string",
@@ -141,14 +141,14 @@ async def list_tools() -> list[Tool]:
                     },
                     "client_id": {
                         "type": "integer",
-                        "description": "Existing client ID (optional)"
+                        "description": "Existing client ID. If provided, client_name and client_contact are resolved from DB."
                     },
                     "notes": {
                         "type": "string",
                         "description": "Notes for the appointment"
                     }
                 },
-                "required": ["client_name", "start_datetime"]
+                "required": ["start_datetime"]
             }
         ),
         Tool(
@@ -706,9 +706,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         elif name == "create_appointment":
             result = await slotix.create_appointment(
-                client_name=arguments["client_name"],
                 start_datetime=arguments["start_datetime"],
                 duration_minutes=arguments.get("duration_minutes", 30),
+                client_name=arguments.get("client_name"),
                 client_contact=arguments.get("client_contact"),
                 client_id=arguments.get("client_id"),
                 notes=arguments.get("notes")
