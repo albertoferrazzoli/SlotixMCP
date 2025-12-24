@@ -274,7 +274,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="get_availability",
-            description="Get available time slots for booking appointments.",
+            description="Get schedule overview showing all time slots with their status. Available slots are marked as free, occupied slots show the appointment ID.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -837,13 +837,18 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 end_date=arguments.get("end_date")
             )
             if not result:
-                text = "No available slots found for the selected period."
+                text = "No slots found for the selected period."
             else:
-                text = "**Available Slots**\n\n"
+                text = "**Schedule Overview**\n\n"
                 for day in result:
                     text += f"**{format_date(day['date'])}**\n"
                     for slot in day.get("slots", []):
-                        text += f"  - {slot['start_time']} - {slot['end_time']} ({slot['duration_minutes']}min)\n"
+                        time_range = f"{slot['start_time']} - {slot['end_time']}"
+                        if slot.get("available", True):
+                            text += f"  - {time_range} ✓ Available\n"
+                        else:
+                            apt_id = slot.get("appointment_id")
+                            text += f"  - {time_range} ✗ Occupied [Appointment ID:{apt_id}]\n"
                     text += "\n"
 
         elif name == "get_stats":
