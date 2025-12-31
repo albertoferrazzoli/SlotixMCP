@@ -210,31 +210,43 @@ class SlotixClient:
     # Notifications
     async def send_notification(
         self,
-        client_id: int,
         message: str,
+        client_id: Optional[int] = None,
+        client_ids: Optional[list[int]] = None,
         channel: str = "auto"
     ) -> dict:
-        """Send a notification to a client."""
-        return await self._request(
-            "POST",
-            "/notifications/send",
-            json={
-                "client_id": client_id,
-                "message": message,
-                "channel": channel
-            }
-        )
+        """Send a notification to one or more clients.
+
+        Either client_id (single) or client_ids (multiple) must be provided.
+        """
+        data: dict[str, Any] = {
+            "message": message,
+            "channel": channel
+        }
+        if client_ids:
+            data["client_ids"] = client_ids
+        elif client_id:
+            data["client_id"] = client_id
+        return await self._request("POST", "/notifications/send", json=data)
 
     # Coupons
     async def create_coupon(
         self,
-        client_id: int,
+        client_id: Optional[int] = None,
+        client_ids: Optional[list[int]] = None,
         discount_type: Optional[str] = None,
         discount_value: Optional[float] = None,
         validity_days: Optional[int] = None
     ) -> dict:
-        """Create and send a coupon to a client."""
-        data: dict[str, Any] = {"client_id": client_id}
+        """Create and send a coupon to one or more clients.
+
+        Either client_id (single) or client_ids (multiple) must be provided.
+        """
+        data: dict[str, Any] = {}
+        if client_ids:
+            data["client_ids"] = client_ids
+        elif client_id:
+            data["client_id"] = client_id
         if discount_type:
             data["discount_type"] = discount_type
         if discount_value is not None:

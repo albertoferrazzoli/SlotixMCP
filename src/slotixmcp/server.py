@@ -308,13 +308,18 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="send_notification",
-            description="Send a message to a client via Telegram or WhatsApp.",
+            description="Send a message to one or more clients via Telegram or WhatsApp. Use client_id for a single client or client_ids for multiple clients.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "client_id": {
                         "type": "integer",
-                        "description": "The client ID to send the message to"
+                        "description": "Single client ID (use this OR client_ids)"
+                    },
+                    "client_ids": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "List of client IDs to send the message to (use this OR client_id)"
                     },
                     "message": {
                         "type": "string",
@@ -327,18 +332,23 @@ async def list_tools() -> list[Tool]:
                         "default": "auto"
                     }
                 },
-                "required": ["client_id", "message"]
+                "required": ["message"]
             }
         ),
         Tool(
             name="create_coupon",
-            description="Create and send a discount coupon to a client. The coupon is automatically sent via Telegram or WhatsApp with a QR code. Uses your default settings if discount parameters are not specified.",
+            description="Create and send a discount coupon to one or more clients. The coupon is automatically sent via Telegram or WhatsApp with a QR code. Uses your default settings if discount parameters are not specified. Use client_id for a single client or client_ids for multiple clients.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "client_id": {
                         "type": "integer",
-                        "description": "The client ID to send the coupon to"
+                        "description": "Single client ID (use this OR client_ids)"
+                    },
+                    "client_ids": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "List of client IDs to send coupons to (use this OR client_id)"
                     },
                     "discount_type": {
                         "type": "string",
@@ -354,7 +364,7 @@ async def list_tools() -> list[Tool]:
                         "description": "Number of days until the coupon expires"
                     }
                 },
-                "required": ["client_id"]
+                "required": []
             }
         ),
         # Catalog (Services/Products)
@@ -866,36 +876,64 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         elif name == "send_notification":
             result = await slotix.send_notification(
-                client_id=arguments["client_id"],
                 message=arguments["message"],
+                client_id=arguments.get("client_id"),
+                client_ids=arguments.get("client_ids"),
                 channel=arguments.get("channel", "auto")
             )
-            if result.get("success"):
-                text = f"**Message sent** via {result.get('channel_used', 'messaging')}."
+            results = result.get("results", [])
+            if len(results) == 1:
+                # Single client - simple response
+                r = results[0]
+                if r.get("success"):
+                    text = f"**Message sent** to {r.get('client_name', 'client')} via {r.get('channel_used', 'messaging')}."
+                else:
+                    text = f"**Failed to send message** to {r.get('client_name', 'client')}: {r.get('error', 'Unknown error')}"
             else:
-                text = f"**Failed to send message**: {result.get('message', 'Unknown error')}"
+                # Multiple clients - detailed response
+                text = f"**Notification Results** - {result.get('message', '')}\n\n"
+                for r in results:
+                    if r.get("success"):
+                        text += f"- ✓ **{r.get('client_name', 'Unknown')}** (ID:{r.get('client_id')}) - sent via {r.get('channel_used')}\n"
+                    else:
+                        text += f"- ✗ **{r.get('client_name', 'Unknown')}** (ID:{r.get('client_id')}) - {r.get('error', 'Unknown error')}\n"
+                text += f"\n**Total:** {result.get('total_sent', 0)} sent, {result.get('total_failed', 0)} failed"
 
         elif name == "create_coupon":
             result = await slotix.create_coupon(
-                client_id=arguments["client_id"],
+                client_id=arguments.get("client_id"),
+                client_ids=arguments.get("client_ids"),
                 discount_type=arguments.get("discount_type"),
                 discount_value=arguments.get("discount_value"),
                 validity_days=arguments.get("validity_days")
             )
-            if result.get("success"):
-                expires = result.get("expires_at", "")
-                if expires:
-                    try:
-                        expires = format_datetime(expires)
-                    except Exception:
-                        pass
-                text = f"""**Coupon Created**
-- Code: {result.get('coupon_code', 'N/A')}
-- Discount: {result.get('discount_display', 'N/A')}
-- Expires: {expires or 'N/A'}
-- Status: {result.get('message', 'Sent')}"""
+            results = result.get("results", [])
+            if len(results) == 1:
+                # Single client - simple response
+                r = results[0]
+                if r.get("success"):
+                    expires = r.get("expires_at", "")
+                    if expires:
+                        try:
+                            expires = format_datetime(expires)
+                        except Exception:
+                            pass
+                    text = f"""**Coupon Created**
+- Client: {r.get('client_name', 'N/A')}
+- Code: {r.get('coupon_code', 'N/A')}
+- Discount: {r.get('discount_display', 'N/A')}
+- Expires: {expires or 'N/A'}"""
+                else:
+                    text = f"**Failed to create coupon** for {r.get('client_name', 'client')}: {r.get('error', 'Unknown error')}"
             else:
-                text = f"**Failed to create coupon**: {result.get('message', 'Unknown error')}"
+                # Multiple clients - detailed response
+                text = f"**Coupon Results** - {result.get('message', '')}\n\n"
+                for r in results:
+                    if r.get("success"):
+                        text += f"- ✓ **{r.get('client_name', 'Unknown')}** (ID:{r.get('client_id')}) - Code: {r.get('coupon_code')}, {r.get('discount_display')}\n"
+                    else:
+                        text += f"- ✗ **{r.get('client_name', 'Unknown')}** (ID:{r.get('client_id')}) - {r.get('error', 'Unknown error')}\n"
+                text += f"\n**Total:** {result.get('total_sent', 0)} created, {result.get('total_failed', 0)} failed"
 
         # Catalog (Services/Products)
         elif name == "get_catalog_items":
