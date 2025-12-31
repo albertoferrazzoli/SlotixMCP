@@ -531,6 +531,137 @@ async def list_tools() -> list[Tool]:
                 "required": ["appointment_id", "service_id"]
             }
         ),
+        # Schedule / Availability Management
+        Tool(
+            name="get_weekly_schedule",
+            description="Get your complete weekly availability schedule showing all working hours for each day of the week.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        ),
+        Tool(
+            name="set_availability",
+            description="Set or update working hours for a specific day of the week. Use this to define your regular opening hours.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "day_of_week": {
+                        "type": "integer",
+                        "description": "Day of week: 0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday"
+                    },
+                    "start_time": {
+                        "type": "string",
+                        "description": "Opening time in HH:MM format (e.g., '09:00')"
+                    },
+                    "end_time": {
+                        "type": "string",
+                        "description": "Closing time in HH:MM format (e.g., '18:00')"
+                    },
+                    "slot_duration": {
+                        "type": "integer",
+                        "description": "Appointment slot duration in minutes (optional, uses default if not specified)"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "description": "Whether this availability is active (default: true)",
+                        "default": True
+                    }
+                },
+                "required": ["day_of_week", "start_time", "end_time"]
+            }
+        ),
+        Tool(
+            name="delete_availability",
+            description="Remove working hours for a specific availability slot.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "availability_id": {
+                        "type": "integer",
+                        "description": "The availability slot ID to delete"
+                    }
+                },
+                "required": ["availability_id"]
+            }
+        ),
+        Tool(
+            name="get_schedule_exceptions",
+            description="Get availability exceptions (blocked time, extra availability) for a date range. Use this to see vacations, breaks, or special hours.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "start_date": {
+                        "type": "string",
+                        "description": "Start date (YYYY-MM-DD)"
+                    },
+                    "end_date": {
+                        "type": "string",
+                        "description": "End date (YYYY-MM-DD)"
+                    },
+                    "exception_type": {
+                        "type": "string",
+                        "description": "Filter by type: 'block' for blocked time, 'available' for extra availability",
+                        "enum": ["block", "available"]
+                    }
+                },
+                "required": []
+            }
+        ),
+        Tool(
+            name="create_schedule_exception",
+            description="Create an availability exception to block time (vacation, break, day off) or add extra availability. Use exception_type='block' for blocking time (lunch breaks, vacations, holidays) or 'available' for adding extra working hours.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "description": "Date for single-day exception (YYYY-MM-DD)"
+                    },
+                    "start_date": {
+                        "type": "string",
+                        "description": "Start date for multi-day exception (YYYY-MM-DD)"
+                    },
+                    "end_date": {
+                        "type": "string",
+                        "description": "End date for multi-day exception (YYYY-MM-DD)"
+                    },
+                    "exception_type": {
+                        "type": "string",
+                        "description": "'block' to block time (vacation, break), 'available' to add extra hours",
+                        "enum": ["block", "available"]
+                    },
+                    "start_time": {
+                        "type": "string",
+                        "description": "Start time in HH:MM format. Leave empty for all-day exception"
+                    },
+                    "end_time": {
+                        "type": "string",
+                        "description": "End time in HH:MM format. Leave empty for all-day exception"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Reason for the exception (e.g., 'Vacation', 'Lunch break', 'Holiday')"
+                    }
+                },
+                "required": ["exception_type"]
+            }
+        ),
+        Tool(
+            name="delete_schedule_exception",
+            description="Delete a specific availability exception.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "exception_id": {
+                        "type": "integer",
+                        "description": "The exception ID to delete"
+                    }
+                },
+                "required": ["exception_id"]
+            }
+        ),
     ]
 
 
@@ -1029,6 +1160,101 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 service_id=arguments["service_id"]
             )
             text = f"**Service #{arguments['service_id']} removed from appointment #{arguments['appointment_id']}.**"
+
+        # Schedule / Availability Management
+        elif name == "get_weekly_schedule":
+            result = await slotix.get_weekly_schedule()
+            slots = result.get("slots", [])
+            if not slots:
+                text = "No availability configured. Use set_availability to define your working hours."
+            else:
+                text = "**Weekly Schedule**\n\n"
+                text += f"Default slot duration: {result.get('default_slot_duration', 30)} min | "
+                text += f"Booking notice: {result.get('booking_notice_hours', 24)}h | "
+                text += f"Max days ahead: {result.get('max_booking_days_ahead', 30)}\n\n"
+
+                # Group by day
+                day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+                by_day: dict[int, list] = {}
+                for slot in slots:
+                    day = slot.get("day_of_week", 0)
+                    if day not in by_day:
+                        by_day[day] = []
+                    by_day[day].append(slot)
+
+                for day_idx in range(7):
+                    day_name = day_names[day_idx]
+                    day_slots = by_day.get(day_idx, [])
+                    if day_slots:
+                        for slot in day_slots:
+                            status = "✓" if slot.get("is_active", True) else "✗"
+                            text += f"- **{day_name}** [ID:{slot['id']}]: {slot['start_time']} - {slot['end_time']} ({slot.get('slot_duration', 30)}min) {status}\n"
+                    else:
+                        text += f"- **{day_name}**: Closed\n"
+
+        elif name == "set_availability":
+            result = await slotix.set_availability(
+                day_of_week=arguments["day_of_week"],
+                start_time=arguments["start_time"],
+                end_time=arguments["end_time"],
+                slot_duration=arguments.get("slot_duration"),
+                is_active=arguments.get("is_active", True)
+            )
+            text = f"""**Availability Set**
+- Day: {result.get('day_name', 'Unknown')}
+- Hours: {result.get('start_time', 'N/A')} - {result.get('end_time', 'N/A')}
+- Slot duration: {result.get('slot_duration', 30)} minutes
+- Active: {'Yes' if result.get('is_active', True) else 'No'}"""
+
+        elif name == "delete_availability":
+            await slotix.delete_availability(arguments["availability_id"])
+            text = f"**Availability slot #{arguments['availability_id']} deleted.**"
+
+        elif name == "get_schedule_exceptions":
+            result = await slotix.get_schedule_exceptions(
+                start_date=arguments.get("start_date"),
+                end_date=arguments.get("end_date"),
+                exception_type=arguments.get("exception_type")
+            )
+            exceptions = result.get("exceptions", [])
+            if not exceptions:
+                text = "No schedule exceptions found."
+            else:
+                text = f"**Schedule Exceptions** ({result.get('total', len(exceptions))} found)\n\n"
+                for ex in exceptions:
+                    type_icon = "🚫" if ex.get("exception_type") == "block" else "✅"
+                    if ex.get("start_time"):
+                        time_str = f"{ex['start_time']} - {ex['end_time']}"
+                    else:
+                        time_str = "All day"
+                    reason_str = f" - {ex['reason']}" if ex.get("reason") else ""
+                    text += f"- [ID:{ex['id']}] {type_icon} **{ex['date']}** {time_str}{reason_str}\n"
+
+        elif name == "create_schedule_exception":
+            result = await slotix.create_schedule_exception(
+                exception_type=arguments["exception_type"],
+                date=arguments.get("date"),
+                start_date=arguments.get("start_date"),
+                end_date=arguments.get("end_date"),
+                start_time=arguments.get("start_time"),
+                end_time=arguments.get("end_time"),
+                reason=arguments.get("reason")
+            )
+            if len(result) == 1:
+                ex = result[0]
+                type_str = "Time blocked" if ex.get("exception_type") == "block" else "Extra availability added"
+                if ex.get("start_time"):
+                    time_str = f" from {ex['start_time']} to {ex['end_time']}"
+                else:
+                    time_str = " (all day)"
+                text = f"**{type_str}** on {ex['date']}{time_str}"
+            else:
+                type_str = "blocked" if result[0].get("exception_type") == "block" else "made available"
+                text = f"**{len(result)} days {type_str}** from {result[0]['date']} to {result[-1]['date']}"
+
+        elif name == "delete_schedule_exception":
+            await slotix.delete_schedule_exception(arguments["exception_id"])
+            text = f"**Schedule exception #{arguments['exception_id']} deleted.**"
 
         else:
             text = f"Unknown tool: {name}"

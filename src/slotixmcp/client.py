@@ -357,3 +357,101 @@ class SlotixClient:
             "DELETE",
             f"/appointments/{appointment_id}/services/{service_id}"
         )
+
+    # Schedule / Availability Management
+    async def get_weekly_schedule(self) -> dict:
+        """Get the complete weekly availability schedule."""
+        return await self._request("GET", "/schedule/weekly")
+
+    async def set_availability(
+        self,
+        day_of_week: int,
+        start_time: str,
+        end_time: str,
+        slot_duration: Optional[int] = None,
+        is_active: bool = True
+    ) -> dict:
+        """Set or update availability for a specific day of the week.
+
+        Args:
+            day_of_week: 0=Monday through 6=Sunday
+            start_time: Opening time in HH:MM format
+            end_time: Closing time in HH:MM format
+            slot_duration: Optional slot duration in minutes
+            is_active: Whether this availability is active
+        """
+        data: dict[str, Any] = {
+            "day_of_week": day_of_week,
+            "start_time": start_time,
+            "end_time": end_time,
+            "is_active": is_active
+        }
+        if slot_duration is not None:
+            data["slot_duration"] = slot_duration
+        return await self._request("POST", "/schedule/availability", json=data)
+
+    async def delete_availability(self, availability_id: int) -> dict:
+        """Delete an availability slot."""
+        return await self._request("DELETE", f"/schedule/availability/{availability_id}")
+
+    async def get_schedule_exceptions(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        exception_type: Optional[str] = None
+    ) -> dict:
+        """Get availability exceptions (blocked time, extra availability).
+
+        Args:
+            start_date: Filter from this date (YYYY-MM-DD)
+            end_date: Filter to this date (YYYY-MM-DD)
+            exception_type: Filter by 'block' or 'available'
+        """
+        params: dict[str, Any] = {}
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        if exception_type:
+            params["exception_type"] = exception_type
+        return await self._request("GET", "/schedule/exceptions", params=params if params else None)
+
+    async def create_schedule_exception(
+        self,
+        exception_type: str,
+        date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        reason: Optional[str] = None
+    ) -> list:
+        """Create an availability exception to block time or add extra availability.
+
+        Args:
+            exception_type: 'block' for vacation/break, 'available' for extra hours
+            date: Single date (YYYY-MM-DD)
+            start_date: Start of date range (YYYY-MM-DD)
+            end_date: End of date range (YYYY-MM-DD)
+            start_time: Start time (HH:MM) - leave empty for all day
+            end_time: End time (HH:MM) - leave empty for all day
+            reason: Optional reason (e.g., 'Vacation', 'Lunch break')
+        """
+        data: dict[str, Any] = {"exception_type": exception_type}
+        if date:
+            data["date"] = date
+        if start_date:
+            data["start_date"] = start_date
+        if end_date:
+            data["end_date"] = end_date
+        if start_time:
+            data["start_time"] = start_time
+        if end_time:
+            data["end_time"] = end_time
+        if reason:
+            data["reason"] = reason
+        return await self._request("POST", "/schedule/exceptions", json=data)
+
+    async def delete_schedule_exception(self, exception_id: int) -> dict:
+        """Delete an availability exception."""
+        return await self._request("DELETE", f"/schedule/exceptions/{exception_id}")
